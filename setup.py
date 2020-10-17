@@ -25,5 +25,5 @@ setup(
     include_package_data = True,
     platforms = "any",
     install_requires = [],
-    scripts = ['bin/climate']
+    scripts = []
 )
