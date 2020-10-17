@@ -1,0 +1,3 @@
+#!/usr/bin/env python3
+from climate import climate
+print("test climate bin")
