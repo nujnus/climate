@@ -52,7 +52,6 @@ class CurdCli(FileGroupCli, Starter):
 
   START_METHOD =  "activate_menu_after_start"
 
-
   # 状态和函数和数据关系.
   @state("edit_for_create")
   def _edit_for_create(self): self.edit_for_create(content=self.template_for_create)
