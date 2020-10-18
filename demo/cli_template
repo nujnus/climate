@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-#from cli_template import cli_template
+# from cli_template import cli_template
 
 # 这两个放到启动文件里.
 import fire
@@ -10,125 +10,124 @@ from climate.state_decorator import state
 from filegroup_cli import FileGroupCli
 
 
-#from transitions import State
+# from transitions import State
 class CurdCli(FileGroupCli, Starter):
-  # 总设计图: 在这里将prd落地为代码的流程结构.
+    # 总设计图: 在这里将prd落地为代码的流程结构.
+
+    # 状态转移关系:
+    STATE_FLOW = [
+        {'trigger': 'activate_menu_after_start', 'source': 'start', 'dest': 'menu_after_start'},
+
+        {'trigger': 'list_option_selected', 'source': 'menu_after_start', 'dest': 'list'},
+        {'trigger': 'create_option_selected', 'source': 'menu_after_start', 'dest': 'edit_for_create'},
+        {'trigger': 'edit_done', 'source': 'edit_for_create', 'dest': 'create'},
+
+        {'trigger': 'create_committed', 'source': "create", 'dest': 'menu_after_start'},
+        {'trigger': 'create_canceled', 'source': "create", 'dest': 'menu_after_start'},
+
+        {'trigger': 'item_selected', 'source': "list", 'dest': 'read'},
+        {'trigger': 'back_option_selected', 'source': "list", 'dest': 'menu_after_start'},
+
+        {'trigger': 'checkbox', 'source': "list", 'dest': 'list_checkbox'},
+        {'trigger': 'nothing_checked', 'source': "list_checkbox", 'dest': 'list'},
+
+        {'trigger': 'items_checked', 'source': 'list_checkbox', 'dest': 'menu_after_checked'},
+        {'trigger': 'back_option_selected', 'source': 'menu_after_checked', 'dest': 'list_checkbox'},
+
+        {'trigger': 'item_has_read', 'source': 'read', 'dest': 'menu_after_read'},
+
+        {'trigger': 'update_option_selected', 'source': 'menu_after_read', 'dest': 'edit'},
+        {'trigger': 'edit_done', 'source': 'edit', 'dest': 'update'},
+
+        {'trigger': 'update_committed', 'source': "update", 'dest': 'read'},
+        {'trigger': 'update_canceled', 'source': "update", 'dest': 'read'},
+
+        {'trigger': 'delete_option_selected', 'source': 'menu_after_read', 'dest': 'delete'},
+        {'trigger': 'back_option_selected', 'source': 'menu_after_read', 'dest': 'list'},
+
+        {'trigger': 'delete_committed', 'source': 'delete', 'dest': 'list'},
+        {'trigger': 'delete_canceled', 'source': 'delete', 'dest': 'read'},
+    ]
+
+    START_METHOD = "activate_menu_after_start"
+
+    # 状态和函数和数据关系.
+    @state("edit_for_create")
+    def _edit_for_create(self): self.edit_for_create(content=self.template_for_create)
+
+    @state("create")
+    def _create(self): self.create(data=json.loads(self.store["edit_for_create_out"]))
+
+    @state("list")
+    def _list(self): self.list()
+
+    @state("read")
+    def _read(self): self.read(id=self.store["list_out"]["id"])
+
+    @state("edit")
+    def _edit(self): self.edit_for_update(content=self.store["read_out"])
+
+    @state("update")
+    def _update(self): self.update(id=self.store["list_out"]["id"])
+
+    @state("delete")
+    def _delete(self): self.delete(id=self.store["list_out"]["id"])
+
+    @state("menu_after_read")
+    def _menu_after_read(self): self.menu_after_read()
+
+    @state("menu_after_start")
+    def _menu_after_start(self): self.menu_after_start()
+
+    @state("menu_after_checked")
+    def _menu_after_checked(self): self.menu_after_checked()
+
+    @state("list_checkbox")
+    def _list_checkbox(self): self.list_checkbox()
+
+    # 计算逻辑写在state里. #trigger逻辑也直接写在state里.  #界面逻辑写在单独文件里.  #例如读取什么, 遇到什么情况ui事件, trigger什么.
 
 
-  # 状态转移关系:
-  STATE_FLOW = [
-               {'trigger': 'activate_menu_after_start',   'source': 'start', 'dest': 'menu_after_start'},
-
-               {'trigger': 'list_option_selected',        'source': 'menu_after_start', 'dest': 'list'},
-               {'trigger': 'create_option_selected',      'source': 'menu_after_start', 'dest': 'edit_for_create'},
-               {'trigger': 'edit_done',                   'source': 'edit_for_create', 'dest': 'create'},
-
-               {'trigger': 'create_committed',            'source': "create",           'dest': 'menu_after_start' },
-               {'trigger': 'create_canceled',             'source': "create",           'dest': 'menu_after_start' },
-
-               {'trigger': 'item_selected',               'source': "list",             'dest': 'read' },
-               {'trigger': 'back_option_selected',        'source': "list",             'dest': 'menu_after_start' },
-
-               {'trigger': 'checkbox',                    'source': "list",             'dest': 'list_checkbox' },
-               {'trigger': 'nothing_checked',             'source': "list_checkbox",    'dest': 'list' },
-
-               {'trigger': 'items_checked',               'source': 'list_checkbox',     'dest': 'menu_after_checked'},
-               {'trigger': 'back_option_selected',        'source': 'menu_after_checked','dest': 'list_checkbox'},
-
-               {'trigger': 'item_has_read',               'source': 'read',             'dest': 'menu_after_read' },
-
-               {'trigger': 'update_option_selected',      'source': 'menu_after_read',  'dest': 'edit' },
-               {'trigger': 'edit_done',                   'source': 'edit',             'dest': 'update' },
-
-               {'trigger': 'update_committed',            'source': "update",           'dest': 'read' },
-               {'trigger': 'update_canceled',             'source': "update",           'dest': 'read' },
-
-               {'trigger': 'delete_option_selected',      'source': 'menu_after_read',  'dest': 'delete' },
-               {'trigger': 'back_option_selected',        'source': 'menu_after_read',  'dest': 'list' },
-
-               {'trigger': 'delete_committed',            'source': 'delete',           'dest': 'list'},
-               {'trigger': 'delete_canceled',             'source': 'delete',           'dest': 'read'},
-  ]
-
-  START_METHOD =  "activate_menu_after_start"
-
-  # 状态和函数和数据关系.
-  @state("edit_for_create")
-  def _edit_for_create(self): self.edit_for_create(content=self.template_for_create)
-
-  @state("create")
-  def _create(self): self.create(data=json.loads(self.store["edit_for_create_out"]))
-
-  @state("list")
-  def _list(self): self.list()
-
-  @state("read")
-  def _read(self): self.read(id=self.store["list_out"]["id"])
-
-  @state("edit")
-  def _edit(self): self.edit_for_update(content=self.store["read_out"]) 
-
-  @state("update")
-  def _update(self): self.update(id=self.store["list_out"]["id"])
-
-  @state("delete")
-  def _delete(self): self.delete(id=self.store["list_out"]["id"])
-
-  @state("menu_after_read")
-  def _menu_after_read(self):self.menu_after_read()
-
-  @state("menu_after_start")
-  def _menu_after_start(self):self.menu_after_start()
-
-  @state("menu_after_checked")
-  def _menu_after_checked(self):self.menu_after_checked()
-
-  @state("list_checkbox")
-  def _list_checkbox(self):self.list_checkbox()
-
-  #计算逻辑写在state里. #trigger逻辑也直接写在state里.  #界面逻辑写在单独文件里.  #例如读取什么, 遇到什么情况ui事件, trigger什么.
-
-
-#---------------------------------------------
-#加载上述信息, 然后启动:
+# ---------------------------------------------
+# 加载上述信息, 然后启动:
 
 # 启动器. 写一个类似manage.py的东西. #这个东西, 还可以考虑生成图片形式的拓扑图.
-class App:  #start.py? #ok #反正就是个框架.
+class App:  # start.py? #ok #反正就是个框架.
 
-  apps = {}
+    apps = {}
 
-  class AppGroup(object):
-    def __init__(self):
-      self.apps = App.apps
-      for key, value in self.apps.items():
-        self.__dict__[key] = value()
-  
-    def run(self):
-        self.__dict__[key].run()
+    class AppGroup(object):
+        def __init__(self):
+            self.apps = App.apps
+            for key, value in self.apps.items():
+                self.__dict__[key] = value()
 
-  def start():
-    Fire(App.AppGroup)
+        def run(self):
+            self.__dict__[key].run()
 
-#------------------------------------------------
-#if __name__ == '__main__':
-#------------------------------------------------
+    def start():
+        Fire(App.AppGroup)
 
-class  WebCli(CurdCli):
-  pass
 
-class  WebCli2(CurdCli):
-  pass
+# ------------------------------------------------
+# if __name__ == '__main__':
+# ------------------------------------------------
+
+class WebCli(CurdCli):
+    pass
+
+
+class WebCli2(CurdCli):
+    pass
+
 
 App.apps = {"app1": WebCli, "app2": WebCli2}
 App.start()
 
+# -----
+# 循环, 重入即可. (((back概念, 和from概念, 和to概念,)))
 
-#-----
-#循环, 重入即可. (((back概念, 和from概念, 和to概念,)))
+# 引出一个较长的一串操作时.
 
-#引出一个较长的一串操作时.
-
-#同样是一连串操作. (((用基本的操作单元.来组织.)))  #list, checkbox, read, edit, confirm等, 只管串起来即可.
-#各个子逻辑, 各串各的, 最后拼接在一起即可. (((mixin到一起)))
-
-
+# 同样是一连串操作. (((用基本的操作单元.来组织.)))  #list, checkbox, read, edit, confirm等, 只管串起来即可.
+# 各个子逻辑, 各串各的, 最后拼接在一起即可. (((mixin到一起)))
