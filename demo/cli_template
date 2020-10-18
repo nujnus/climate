@@ -1,56 +1,22 @@
 #!/usr/bin/env python3
 #from cli_template import cli_template
+
+# 这两个放到启动文件里.
 import fire
 from fire.core import Fire
-import requests
-import inquirer
-import json
+
+from climate.starter import Starter
+from climate.state_decorator import state
+from filegroup_cli import FileGroupCli
 
 
-from transitions import Machine
-from transitions import State
-
-from climate.cliui_decorators import edit_ui 
-from climate.cliui_decorators import read_ui
-from climate.cliui_decorators import confirm_ui
-from climate.cliui_decorators import list_ui
-from climate.cliui_decorators import checkbox_ui
-from climate.cliui import BaseCliUI
-
-class CurdCli(BaseCliUI):
-
-  # 定义参数如何传递:
-  # 剩下的目标是做成库. #很费事呢.
-
-  def _edit_for_create(self): self.edit_for_create(content=self.template_for_create)
-  def _create(self): self.create(data=json.loads(self.store["edit_for_create_out"]))
-  def _list(self): self.list()
-  def _read(self): self.read(id=self.store["list_out"]["id"])
-  def _edit(self): self.edit_for_update(content=self.store["read_out"]) 
-  def _update(self): self.update(id=self.store["list_out"]["id"])
-  def _delete(self): self.delete(id=self.store["list_out"]["id"])
+#from transitions import State
+class CurdCli(FileGroupCli, Starter):
+  # 总设计图: 在这里将prd落地为代码的流程结构.
 
 
-  states=[
-        State(name="list", on_enter=["_list"], on_exit=[]),
-        State(name="read", on_enter=["_read"], on_exit=[]),
-        State(name="edit_for_create", on_enter=["_edit_for_create"], on_exit=[]),
-        State(name="create", on_enter=["_create"], on_exit=[]),
-        State(name="edit", on_enter=["_edit"], on_exit=[]),
-        State(name="update", on_enter=["_update"], on_exit=[]),
-        State(name="delete", on_enter=["_delete"], on_exit=[]),
-
-        State(name="menu_after_start", on_enter=["menu_after_start"], on_exit=[]),
-        State(name="menu_after_read", on_enter=["menu_after_read"], on_exit=[]),
-
-        State(name="list_checkbox", on_enter=["list_checkbox"], on_exit=[]),
-        State(name="menu_after_checked", on_enter=["menu_after_checked"], on_exit=[]),
-
-
-        State(name="start", on_enter=[], on_exit=[]),
-   ]
-
-  transitions = [
+  # 状态转移关系:
+  STATE_FLOW = [
                {'trigger': 'activate_menu_after_start',   'source': 'start', 'dest': 'menu_after_start'},
 
                {'trigger': 'list_option_selected',        'source': 'menu_after_start', 'dest': 'list'},
@@ -84,127 +50,51 @@ class CurdCli(BaseCliUI):
                {'trigger': 'delete_canceled',             'source': 'delete',           'dest': 'read'},
   ]
 
-
-# meta的部分
-  baseurl = "http://127.0.0.1:8080"
-  urls = {"update": "/app_demo_2EC6E023F4/api_FileGroup2Set/{}/",
-          "get":    "/app_demo_2EC6E023F4/api_FileGroup2Set/{}/",
-          "list":    "/app_demo_2EC6E023F4/api_FileGroup2Set/",
-          "create":  "/app_demo_2EC6E023F4/api_FileGroup2Set/",
-          "delete":  "/app_demo_2EC6E023F4/api_FileGroup2Set/{}",}
-
-  template_for_create = """
-{
-    "description": "",
-    "name": ""
-}
-
-"""
-
-  def __init__(self):
-    self.store = {}
-    self.__get_token()
-    self.machine = Machine(model=self, states=self.states, transitions=self.transitions, initial='start')
+  START_METHOD =  "activate_menu_after_start"
 
 
-  def __get_token(self):
-    username = "nujnus"
-    password =  "123"
-    
-    url = r'http://localhost:8080/api/token/'
-    data = {"username": username, "password": password}
-    header = {"Content-Type": "application/json"}
-    r = requests.post(url, headers=header, json=data)
-    
-    self.token_pair = json.loads(r.text)
-    self.refresh_token = self.token_pair["refresh"]
-    self.access_token = self.token_pair["access"]
-    return  self.token_pair
+  # 状态和函数和数据关系.
+  @state("edit_for_create")
+  def _edit_for_create(self): self.edit_for_create(content=self.template_for_create)
+
+  @state("create")
+  def _create(self): self.create(data=json.loads(self.store["edit_for_create_out"]))
+
+  @state("list")
+  def _list(self): self.list()
+
+  @state("read")
+  def _read(self): self.read(id=self.store["list_out"]["id"])
+
+  @state("edit")
+  def _edit(self): self.edit_for_update(content=self.store["read_out"]) 
+
+  @state("update")
+  def _update(self): self.update(id=self.store["list_out"]["id"])
+
+  @state("delete")
+  def _delete(self): self.delete(id=self.store["list_out"]["id"])
+
+  @state("menu_after_read")
+  def _menu_after_read(self):self.menu_after_read()
+
+  @state("menu_after_start")
+  def _menu_after_start(self):self.menu_after_start()
+
+  @state("menu_after_checked")
+  def _menu_after_checked(self):self.menu_after_checked()
+
+  @state("list_checkbox")
+  def _list_checkbox(self):self.list_checkbox()
+
+  #计算逻辑写在state里. #trigger逻辑也直接写在state里.  #界面逻辑写在单独文件里.  #例如读取什么, 遇到什么情况ui事件, trigger什么.
 
 
-  def start(self):
-    self.activate_menu_after_start()
+#---------------------------------------------
+#加载上述信息, 然后启动:
 
-  @list_ui(message="<menu_after_read>",
-        update="update_option_selected",
-        delete="delete_option_selected",
-        back="back_option_selected")
-  def menu_after_read(self):
-    return []
-
-
-  @list_ui(message="<menu_after_checked>", Back="back_option_selected")
-  def menu_after_checked(self):
-    return []
-
-  @list_ui(message="<menu_after_start>",
-        show_list="list_option_selected",
-        create="create_option_selected",
-        Back=None,
-        item_selected="item_selected")
-  def menu_after_start(self):
-    return []
-
-
-  @list_ui(message="<list>",
-        out="list_out",
-        checkbox="checkbox",
-        back="back_option_selected",
-        item_selected="item_selected"
-  )
-  def list(self):
-    url = (self.baseurl+self.urls["list"])
-    result = requests.get(url).json()[:5]
-    return  [{"id": x["id"],  "group_name": x["name"]} for x in result]
-
-  @checkbox_ui(message="<read>", items_checked="items_checked", nothing_checked="nothing_checked", out="checkbox_out")
-  def list_checkbox(self):
-    url = (self.baseurl+self.urls["list"])
-    result = requests.get(url).json()[:5]
-    return  [{"id": x["id"],  "group_name": x["name"]} for x in result]
-
-
-  @read_ui(message="<read>", item_has_read="item_has_read", out="read_out")
-  def read(self, id=None):
-    url = (self.baseurl+self.urls["get"]).format(str(id))
-    get_result = requests.get(url).json()
-    get_result_string = json.dumps(get_result, indent=4, sort_keys=True)
-    return get_result_string
-
-
-  @edit_ui(message="<edit_for_update>", out="edit_out", edit_done="edit_done")
-  def edit_for_update(self, content=None):
-    assert type(content) == str, "type of content must be string"
-    return content
-
-
-  @confirm_ui(message="<update>", yes="update_committed", no="update_canceled")
-  def update(self, id=None):
-    url = (self.baseurl+self.urls["update"]).format(str(id))
-    header = {"Content-Type": "application/json"}
-    result = requests.put(url, headers=header, data=data).json()
-    print(result)
-
-
-  @confirm_ui(message="<delete>", yes="delete_committed", no="delete_canceled")
-  def delete(self, id=None):
-    url = (self.baseurl+self.urls["delete"]).format(str(id))
-    result = requests.delete(url)
-    print(str(result))
-
-  @edit_ui(message="<edit_for_create>", out="edit_for_create_out", edit_done="edit_done")
-  def edit_for_create(self, content=None):
-    return content
-
-  @confirm_ui(message="<create>", yes="create_committed", no="create_canceled")
-  def create(self, data):
-    url = (self.baseurl+self.urls["create"]).format(str(id))
-    header = {"Content-Type": "application/json"}
-    result = requests.post(url, headers=header, data=data).json()
-    print(result)
-
-
-class App:
+# 启动器. 写一个类似manage.py的东西. #这个东西, 还可以考虑生成图片形式的拓扑图.
+class App:  #start.py? #ok #反正就是个框架.
 
   apps = {}
 
@@ -233,5 +123,13 @@ class  WebCli2(CurdCli):
 App.apps = {"app1": WebCli, "app2": WebCli2}
 App.start()
 
+
+#-----
+#循环, 重入即可. (((back概念, 和from概念, 和to概念,)))
+
+#引出一个较长的一串操作时.
+
+#同样是一连串操作. (((用基本的操作单元.来组织.)))  #list, checkbox, read, edit, confirm等, 只管串起来即可.
+#各个子逻辑, 各串各的, 最后拼接在一起即可. (((mixin到一起)))
 
 

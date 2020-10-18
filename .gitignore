@@ -1,5 +1,5 @@
 dist
 build
 *.egg-info
-simple_rare/__pycache__
+demo/__pycache__
 .idea
